@@ -33,7 +33,7 @@ def bias_variable(shape):
     return tf.Variable(initial)
 
 
-# 卷积进行同卷积操作 即步长为1，padding = "SAME" 滤波器为5*5
+# 滤波器为5*5 卷积进行同卷积操作 即步长为1，padding = "SAME" 
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
     
@@ -102,6 +102,4 @@ for i in range(15000):
         # print(x.shape, x_image.shape)
 
 print('Finish!')
-
-sess.close()
         
