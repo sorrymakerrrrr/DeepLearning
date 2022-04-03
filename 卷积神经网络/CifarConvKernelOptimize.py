@@ -1,67 +1,67 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Mar 27 17:14:22 2022
-使用三个卷积层的同卷积操作 滤波器为5*5 每一个卷积层后面都会跟一个步长为2*2的池化层，滤波器为2*2
-2层的卷积加池化后是输出为10个通道的卷积层，然后对这10个feature map进行全局平均池化，得到10个特征
-再对十个特征进行softmax计算，结果代表最终分类
+Created on Fri Apr  1 20:21:25 2022
+卷积核优化
 @author: Xinnze
 """
 
+import tensorflow.compat.v1 as tf
+import numpy as np
+from cifar10 import cifar10_input
+import tensor
 
-import tensorflow.compat.v1 as tf 
-from cifar10 import cifar10_input 
-import numpy as np 
 
-
-batch_size = 128 
-data_dir = 'cifar-10-batches-bin'
+tf.disable_v2_behavior()
 
 print('begin')
 
-images_train, labels_train = cifar10_input.inputs(eval_data=False, data_dir=data_dir, batch_size=batch_size)
-images_test, labels_test = cifar10_input.inputs(eval_data=True, data_dir=data_dir, batch_size=batch_size)
+data_dir = 'cifar-10-batches-bin'
+images_train, labels_train = cifar10_input.inputs(eval_data=False, data_dir=data_dir, batch_size=128)
+images_test, labels_test = cifar10_input.inputs(True, data_dir, 128)
+
 print('begin data')
 
-# 权重w定义
-def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev=0.1)
-    return tf.Variable(initial)
 
+def weight_variable(shape):
+     initial = tf.truncated_normal(shape, stddev=0.1)
+     return tf.Variable(initial)
+ 
 
 def bias_variable(shape):
     initial = tf.constant(0.1, shape=shape)
     return tf.Variable(initial)
 
 
-# 滤波器为5*5 卷积进行同卷积操作 即步长为1，padding = "SAME" 
 def conv2d(x, W):
     return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
-    
 
-# 步长为2，padding为'SAME' 即将卷积缩小一半
+
 def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
-# 放在最后一层 取均值 步长为最终生成的尺寸
+
 def avg_pool_6x6(x):
     return tf.nn.avg_pool(x, ksize=[1, 6, 6, 1], strides=[1, 6, 6, 1], padding='SAME')
 
 
-# 定义占位符
-x = tf.placeholder(tf.float32, [None, 24, 24, 3])  # 此时cifar data的shape为 24*24*3 而不是1*24*24*3
-y = tf.placeholder(tf.float32, [None, 10])  # 0-9数字分类
+x = tf.placeholder(tf.float32, [None, 24, 24, 3])
+y = tf.placeholder(tf.float32, [None, 10])
 
-# 三通道输入，输出64个feature map 每一个feature map都是三个通道卷积生成的feature map对应位置相加得到
-x_image = tf.reshape(x, [-1, 24, 24, 3])  # 好像不要这一步也可以 conv2d(x_image, W_conv1) 写成 conv2d(x, W_conv1)
+x_image = tf.reshape(x, [-1, 24, 24, 3])
 W_conv1 = weight_variable([5, 5, 3, 64])
 b_conv1 = bias_variable([64])
 h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
 h_pool1 = max_pool_2x2(h_conv1)
 
 
-W_conv2 = weight_variable([5, 5, 64, 64])
+# 演示: 优化卷积核技术。由公式保证5x1的矩阵和1x5的矩阵正好可以生成5x5的矩阵
+W_conv21 = weight_variable([5, 1, 64, 64])
+b_conv21 = bias_variable([64])
+h_conv21 = tf.nn.relu(conv2d(h_pool1, W_conv21) + b_conv21)
+
+W_conv2 = weight_variable([1, 5, 64, 64])
 b_conv2 = bias_variable([64])
-h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
+h_conv2 = tf.nn.relu(conv2d(h_conv21, W_conv2) + b_conv2)
 h_pool2 = max_pool_2x2(h_conv2)
 
 
@@ -109,4 +109,4 @@ for i in range(10):
     acc_testavg += 1 / 10 * acc_test
     
 print('Finished!, test accuracy %g' % acc_testavg)
-        
+
